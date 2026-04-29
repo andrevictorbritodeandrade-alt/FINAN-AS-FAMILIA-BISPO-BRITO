@@ -92,7 +92,8 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onToggl
             'LILI TORRES',
             'REBECCA BRITO',
             'JADY',
-            'IAGO'
+            'IAGO',
+            'DÍVIDAS NA RUA'
         ];
         const idxA = priority.indexOf(a);
         const idxB = priority.indexOf(b);
@@ -114,7 +115,7 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onToggl
     }
 
     const formatDateHeader = (key: string) => {
-        if (key.includes('Distribuição') || key === 'MORADIA' || key === 'MARCIA BRITO' || key === 'MARCIA BISPO' || key === 'LILI TORRES' || key === 'REBECCA BRITO' || key === 'JADY' || key === 'IAGO' || key === 'Sem Data') return key;
+        if (key.includes('Distribuição') || key === 'MORADIA' || key === 'MARCIA BRITO' || key === 'MARCIA BISPO' || key === 'LILI TORRES' || key === 'REBECCA BRITO' || key === 'JADY' || key === 'IAGO' || key === 'DÍVIDAS NA RUA' || key === 'Sem Data') return key;
         const [year, month, day] = key.split('-');
         if (!year || !month || !day) return key;
         const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
@@ -138,6 +139,8 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onToggl
         if (key === 'LILI TORRES') return 'text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-700';
         if (key === 'REBECCA BRITO') return 'text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-600 to-pink-700';
         if (key === 'JADY') return 'text-transparent bg-clip-text bg-gradient-to-r from-yellow-600 to-amber-700';
+        if (key === 'IAGO') return 'text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-500';
+        if (key === 'DÍVIDAS NA RUA') return 'text-transparent bg-clip-text bg-gradient-to-r from-rose-500 to-orange-600';
         return 'text-gray-600';
     };
 
@@ -271,7 +274,7 @@ const TransactionList: React.FC<TransactionListProps> = ({ transactions, onToggl
                                             {item.installments && (
                                                 <div className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center gap-1.5 shadow-sm">
                                                     <span className="text-xs font-black tracking-widest uppercase opacity-70">Parc.</span>
-                                                    <span className="text-sm font-black">{item.installments.current}/{item.installments.total}</span>
+                                                    <span className="text-sm font-black">{item.installments.current === 0 ? 'Ñ' : item.installments.current}/{item.installments.total}</span>
                                                 </div>
                                             )}
                                             {item.paidAt && (

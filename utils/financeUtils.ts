@@ -99,11 +99,12 @@ export const generateMonthData = (year: number, month: number): MonthData => {
         { description: "APPAI DA MARCELLY", amount: 110.00, category: "Saúde", day: 23, group: 'MARCIA BISPO' },
         { description: "APPAI DO ANDRÉ", amount: 129.50, category: "Saúde", day: 12, group: 'MARCIA BRITO' },
         { description: "CARTÃO DO ITAÚ DA MARCELLY", amount: 200.00, category: "Moradia", day: 24, group: 'MORADIA' },
+        { description: "CARTÃO DO ITAÚ DO ANDRÉ", amount: 116.00, category: "Moradia", day: 24, group: 'MORADIA' },
         { description: "INTERNET DA CASA", amount: 125.00, category: "Moradia", day: 18, group: 'MORADIA' },
         { description: "INTERMÉDICA DO ANDRÉ", amount: 123.00, category: "Saúde", day: 12, group: 'MARCIA BRITO' },
-        { description: "CONTA DA CLARO ANDRÉ", amount: 75.00, category: "Moradia", day: 5, group: 'MORADIA' },
+        { description: "CONTA DA CLARO ANDRÉ", amount: 0, category: "Moradia", day: 5, group: 'MORADIA' },
         { description: "CONTA DA VIVO ANDRÉ", amount: 110.00, category: "Moradia", day: 5, group: 'MORADIA' },
-        { description: "SEGURO DO CARRO", amount: 143.00, category: "Moradia", day: 12, group: 'MORADIA' },
+        { description: "SEGURO DO CARRO", amount: 143.00, category: "Moradia", day: 20, group: 'MORADIA' },
         { description: "CONTA DA VIVO MARCELLY", amount: 66.60, category: "Moradia", day: 23, group: 'MORADIA' },
         { description: "CONTA DA CLARO DA MARCELLY", amount: 34.90, category: "Moradia", day: 5, group: 'MORADIA' }
     ];
@@ -135,7 +136,7 @@ export const generateMonthData = (year: number, month: number): MonthData => {
         if (isMar2026) {
             if (paidInMar2026.some(p => c.description.toUpperCase().includes(p))) isPaid = true;
         }
-        if (year === 2026 && month === 4) {
+        if (year === 2026 && (month === 4 || month === 5)) {
             if (paidInApr2026.some(p => c.description.toUpperCase().includes(p))) isPaid = true;
         }
 
@@ -144,7 +145,7 @@ export const generateMonthData = (year: number, month: number): MonthData => {
             description: c.description,
             amount: finalAmount,
             category: c.category,
-            paid: isPaid,
+            paid: isPaid || (c.amount === 0 && (month >= 4)), // Auto-pay zeroed items
             dueDate: `${year}-${month.toString().padStart(2,'0')}-${c.day.toString().padStart(2,'0')}`,
             group: c.group,
             isSuspended: isSuspended
@@ -162,7 +163,6 @@ export const generateMonthData = (year: number, month: number): MonthData => {
         { desc: "PASSAGENS DE ONIBUS RIO x SP", totalAmount: 438.00, cat: "Transporte", day: 12, installments: 5, sY: 2026, sM: 3, group: 'MARCIA BRITO' },
         { desc: "MALA DO ANDRÉ", totalAmount: 179.00, cat: "Lazer", day: 12, installments: 3, sY: 2026, sM: 3, group: 'MARCIA BRITO' },
         { desc: "RENEGOCIAR CARREFOUR", totalAmount: 5000.00, cat: "Dívidas", day: 12, installments: 16, sY: 2025, sM: 12, group: 'MARCIA BRITO' },
-        { desc: "EMPRÉSTIMO COM MARCIA BISPO", totalAmount: 1100.00, cat: "Dívidas", day: 15, installments: 4, sY: 2026, sM: 5, group: 'MARCIA BISPO' },
         { desc: "EMPRÉSTIMO COM LILI", totalAmount: 4000.00, cat: "Dívidas", day: 4, installments: 5, sY: 2026, sM: 4, group: 'LILI TORRES' },
         { desc: "ESTADIA EM JOHANESBURGO", totalAmount: 1363.93, cat: "Lazer", day: 4, installments: 5, sY: 2026, sM: 2, group: 'LILI TORRES' },
         { desc: "ESTADIA EM CIDADE DO CABO", totalAmount: 1197.00, cat: "Lazer", day: 4, installments: 5, sY: 2026, sM: 2, group: 'LILI TORRES' },

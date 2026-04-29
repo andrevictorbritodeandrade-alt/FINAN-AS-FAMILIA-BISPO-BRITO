@@ -75,16 +75,35 @@ const App: React.FC = () => {
         localStorage.setItem(`checkin_${currentYear}_${currentMonth}`, JSON.stringify(newState));
     };
 
-    // Force refresh to pull updated categories and grouping (v15)
+    // Force refresh to pull updated categories and grouping (v22)
     useEffect(() => {
-        const forceUpdateV15 = localStorage.getItem('force_update_v15_salary_due_dates_fixed');
-        if (!forceUpdateV15) {
+        const forceUpdateV22 = localStorage.getItem('force_update_v22_marcia_bispo_may_june_correction');
+        if (!forceUpdateV22) {
             localStorage.removeItem('financeData_2026_4');
             localStorage.removeItem('financeData_2026_5');
-            localStorage.setItem('force_update_v15_salary_due_dates_fixed', 'true');
+            localStorage.removeItem('financeData_2026_6');
+            localStorage.setItem('force_update_v22_marcia_bispo_may_june_correction', 'true');
             window.location.reload();
         }
     }, []);
+
+    // User request: Update Santander balance and transfer to Sofisa (April 2026)
+    useEffect(() => {
+        if (!monthData) return;
+        const processedKey = 'processed_santander_sofisa_transfer_2026_4_v1';
+        if (localStorage.getItem(processedKey)) return;
+
+        // Balance logic: Santander was 5122.09, transferred 4351 to Sofisa.
+        // Final Santander: 771.09
+        // Final Sofisa: current + 4351
+        setBankReserves(prev => ({
+            ...prev,
+            santander: 771.09,
+            sofisa: Math.round((prev.sofisa + 4351) * 100) / 100
+        }));
+
+        localStorage.setItem(processedKey, 'true');
+    }, [monthData]);
 
     // User request: Mark specific items as paid and deduct from Santander
     useEffect(() => {
@@ -267,6 +286,108 @@ const App: React.FC = () => {
 
 
     const ensureSystemIntegrity = (data: MonthData, year: number, month: number): MonthData => {
+        // User request (April 2026): Internet correction, Perfume addition, Specific payments
+        if (year === 2026 && month === 4) {
+            // 1. Correct Internet Value
+            data.expenses = data.expenses.map(e => {
+                const desc = e.description.toUpperCase();
+                if (desc.includes("INTERNET DA CASA")) {
+                    return { ...e, amount: 125.76 };
+                }
+                // Itaú André Card Correction
+                if (desc.includes("CARTÃO DO ITAÚ DO ANDRÉ") || desc.includes("CARTAO DO ITAU DO ANDRE")) {
+                    return { ...e, amount: 116.00, category: "Moradia", group: "MORADIA", paid: true, paidAt: e.paidAt || "2026-04-28T12:00:00Z" };
+                }
+                // André's Claro update
+                if (desc.includes("CONTA DA CLARO ANDRÉ") || desc.includes("CONTA DA CLARO ANDRE")) {
+                    return { ...e, amount: 0 };
+                }
+                // Car Insurance update
+                if (desc.includes("SEGURO DO CARRO")) {
+                    return { ...e, dueDate: "2026-04-20" };
+                }
+                return e;
+            });
+
+            // Ensure Itaú André exists
+            if (!data.expenses.some(e => e.description.toUpperCase().includes("CARTÃO DO ITAÚ DO ANDRÉ") || e.description.toUpperCase().includes("CARTAO DO ITAU DO ANDRE"))) {
+                data.expenses.push({
+                    id: `manual_itau_andre_${Date.now()}`,
+                    description: "CARTÃO DO ITAÚ DO ANDRÉ",
+                    amount: 116.00,
+                    category: "Moradia",
+                    group: "MORADIA",
+                    paid: true,
+                    dueDate: "2026-04-15",
+                    paidAt: "2026-04-28T12:00:00Z"
+                });
+            }
+
+            // 2. Add Perfume Expense in "DÍVIDAS NA RUA"
+            if (!data.expenses.some(e => e.description.toUpperCase().includes("PERFUME"))) {
+                data.expenses.push({
+                    id: `manual_perfume_${Date.now()}`,
+                    description: "PAGAMENTO DE PERFUME",
+                    amount: 100.00,
+                    category: "DÍVIDAS NA RUA",
+                    group: "DÍVIDAS NA RUA",
+                    paid: true,
+                    dueDate: "2026-04-29",
+                    paidAt: new Date().toISOString(),
+                    installments: { current: 1, total: 1 }
+                });
+            } else {
+                // Update existing perfume if it's there but in wrong category/group
+                data.expenses = data.expenses.map(e => {
+                    if (e.description.toUpperCase().includes("PERFUME")) {
+                        return { ...e, category: "DÍVIDAS NA RUA", group: "DÍVIDAS NA RUA", installments: { current: 1, total: 1 } };
+                    }
+                    return e;
+                });
+            }
+
+            // 3. Add Veneno Cupim in "MARCIA BRITO"
+            if (!data.expenses.some(e => e.description.toUpperCase().includes("VENENO PARA MATAR CUPIM"))) {
+                data.expenses.push({
+                    id: `manual_veneno_${Date.now()}`,
+                    description: "VENENO PARA MATAR CUPIM",
+                    amount: 37.00,
+                    category: "Saúde", // Or just Marcia Brito? The user said "na categoria marcia brito" but it's usually a group
+                    group: "MARCIA BRITO",
+                    paid: true,
+                    dueDate: "2026-04-28",
+                    paidAt: "2026-04-28T12:00:00Z",
+                    installments: { current: 1, total: 1 }
+                });
+            }
+
+            // 4. Skip Lili Loan (Keep this as requested earlier)
+            data.expenses = data.expenses.map(e => {
+                const desc = e.description.toUpperCase();
+                if (desc.includes("EMPRÉSTIMO COM LILI")) {
+                    return { ...e, skipped: true };
+                }
+                return e;
+            });
+
+            // 4. Mark Iago, Aluguel, Jady as paid
+            data.expenses = data.expenses.map(e => {
+                const desc = e.description.toUpperCase();
+                if (desc.includes("ALUGUEL") || desc.includes("PASSEIO DE SAFARI")) {
+                    return { ...e, paid: true, paidAt: e.paidAt || new Date().toISOString() };
+                }
+                return e;
+            });
+
+            data.avulsosItems = data.avulsosItems.map(e => {
+                const desc = e.description.toUpperCase();
+                if (desc.includes("IAGO")) {
+                    return { ...e, paid: true, paidAt: e.paidAt || new Date().toISOString() };
+                }
+                return e;
+            });
+        }
+
         // 1. Remove VIVO and EMPRÉSTIMO JADY
         if (year === 2026 && (month === 3 || month === 4 || month === 5)) {
             data.expenses = data.expenses.filter(e => 
@@ -276,77 +397,141 @@ const App: React.FC = () => {
             );
         }
 
-        // 2. Fix "SEGURO DO CARRO" category/group
-        data.expenses = data.expenses.map(e => {
-            if (e.description.toUpperCase() === "SEGURO DO CARRO") {
-                return { ...e, category: "Moradia", group: "MORADIA" };
+        // 1.1 Empréstimo Márcia Bispo: Parcela 0/4 em Maio (0.00) e 1/4 em Junho (275.00)
+        if (year === 2026) {
+            const descBispo = "EMPRÉSTIMO COM MARCIA BISPO";
+            const existingBispo = data.expenses.find(e => e.description.toUpperCase().includes(descBispo));
+            
+            if (month === 5) {
+                if (existingBispo) {
+                    data.expenses = data.expenses.map(e => e.description.toUpperCase().includes(descBispo) 
+                        ? { ...e, amount: 0, installments: { current: 0, total: 4 } } : e);
+                } else {
+                    data.expenses.push({
+                        id: `manual_marcia_bispo_may`,
+                        description: descBispo,
+                        amount: 0,
+                        category: "Dívidas",
+                        group: "MARCIA BISPO",
+                        paid: false,
+                        dueDate: "2026-05-15",
+                        installments: { current: 0, total: 4 }
+                    });
+                }
+            } else if (month === 6) {
+                if (existingBispo) {
+                    data.expenses = data.expenses.map(e => e.description.toUpperCase().includes(descBispo) 
+                        ? { ...e, amount: 275.00, installments: { current: 1, total: 4 } } : e);
+                } else {
+                    data.expenses.push({
+                        id: `manual_marcia_bispo_june`,
+                        description: descBispo,
+                        amount: 275.00,
+                        category: "Dívidas",
+                        group: "MARCIA BISPO",
+                        paid: false,
+                        dueDate: "2026-06-15",
+                        installments: { current: 1, total: 4 }
+                    });
+                }
             }
-            return e;
-        });
+        }
 
-        // 3. User Requested Loan Corrections for MAY 2026
+        // 2. Clear out Claro André (0.00) for all future months from April 2026
+        if (year === 2026 && month >= 4) {
+            data.expenses = data.expenses.map(e => {
+                const desc = e.description.toUpperCase();
+                if (desc.includes("CLARO") && desc.includes("ANDRÉ")) {
+                    return { ...e, amount: 0, paid: true, paidAt: e.paidAt || new Date().toISOString() };
+                }
+                if (desc.includes("SEGURO DO CARRO")) {
+                    return { ...e, category: "Moradia", group: "MORADIA", dueDate: month === 4 ? "2026-04-20" : e.dueDate };
+                }
+                return e;
+            });
+        }
+
+        // 3. May 2026 Specific Logic (Restored and Corrected)
         if (year === 2026 && month === 5) {
             data.expenses = data.expenses.map(e => {
                 const desc = e.description.toUpperCase();
                 if (desc.includes("CELULAR DA MARCELLY")) return { ...e, installments: { current: 3, total: 12 }, amount: 385.74 };
-                if (desc.includes("EMPRÉSTIMO COM LILI")) return { ...e, installments: { current: 2, total: 5 }, amount: 800.00 };
+                if (desc.includes("EMPRÉSTIMO COM LILI")) return { ...e, installments: { current: 0, total: 5 }, amount: 0 };
                 if (desc.includes("PASSEIO DE SAFARI")) return { ...e, installments: { current: 3, total: 6 }, amount: 571.60 };
-                if (desc.includes("EMPRÉSTIMO COM MARCIA BISPO")) return { ...e, installments: { current: 1, total: 4 }, amount: 275.00 };
                 if (desc.includes("REFORMA DO SOFÁ DE CAXIAS")) return { ...e, installments: { current: 2, total: 5 }, amount: 115.00 };
                 if (desc.includes("MÃO DE OBRA DO DAVI")) return { ...e, installments: { current: 1, total: 3 }, amount: 124.27 };
+                
+                // Itaú Marcelly update
+                if (desc.includes("CARTÃO DO ITAÚ DA MARCELLY") || desc.includes("CARTAO DO ITAU DA MARCELLY")) {
+                    return { ...e, paid: true, amount: 168.00, paidAt: e.paidAt || "2026-04-28T12:00:00Z" };
+                }
+                
+                // Itaú André update
+                if (desc.includes("CARTÃO DO ITAÚ DO ANDRÉ") || desc.includes("CARTAO DO ITAU DO ANDRE")) {
+                    return { ...e, paid: true, amount: 116.00, category: "Moradia", group: "MORADIA", paidAt: e.paidAt || "2026-04-28T12:00:00Z" };
+                }
+
+                // Force Veneno Cupim to paid in May
+                if (desc.includes("VENENO PARA MATAR CUPIM")) {
+                    return { ...e, paid: true, paidAt: e.paidAt || "2026-04-28T12:00:00Z", group: "MARCIA BRITO" };
+                }
+
                 return e;
             });
 
-            if (!data.expenses.some(e => e.description.toUpperCase().includes("EMPRÉSTIMO COM MARCIA BISPO"))) {
+            // Ensure Itaú André exists in May
+            if (!data.expenses.some(e => e.description.toUpperCase().includes("CARTÃO DO ITAÚ DO ANDRÉ") || e.description.toUpperCase().includes("CARTAO DO ITAU DO ANDRE"))) {
                 data.expenses.push({
-                    id: `fin_EMPRÉSTIMOCOMMARCIABISPO_1`,
-                    description: "EMPRÉSTIMO COM MARCIA BISPO",
-                    amount: 275.00,
-                    category: "Dívidas",
-                    paid: false,
+                    id: `manual_itau_andre_${Date.now()}`,
+                    description: "CARTÃO DO ITAÚ DO ANDRÉ",
+                    amount: 116.00,
+                    category: "Moradia",
+                    group: "MORADIA",
+                    paid: true,
                     dueDate: "2026-05-15",
-                    group: "MARCIA BISPO",
-                    installments: { current: 1, total: 4 }
+                    paidAt: "2026-04-28T12:00:00Z"
+                });
+            }
+
+            // Perfume in May
+            if (!data.expenses.some(e => e.description.toUpperCase().includes("PERFUME"))) {
+                data.expenses.push({
+                    id: `manual_perfume_may_${Date.now()}`,
+                    description: "PAGAMENTO DE PERFUME",
+                    amount: 100.00,
+                    category: "DÍVIDAS NA RUA",
+                    group: "DÍVIDAS NA RUA",
+                    paid: true,
+                    dueDate: "2026-05-15",
+                    paidAt: new Date().toISOString(),
+                    installments: { current: 1, total: 1 }
+                });
+            }
+
+            // Veneno Cupim in May
+            if (!data.expenses.some(e => e.description.toUpperCase().includes("VENENO PARA MATAR CUPIM"))) {
+                data.expenses.push({
+                    id: `manual_veneno_may_${Date.now()}`,
+                    description: "VENENO PARA MATAR CUPIM",
+                    amount: 37.00,
+                    category: "Saúde",
+                    group: "MARCIA BRITO",
+                    paid: true,
+                    dueDate: "2026-05-12",
+                    paidAt: "2026-04-28T12:00:00Z",
+                    installments: { current: 1, total: 1 }
                 });
             }
         }
 
-        // 4. Force specific transactions as PAID in April 2026
-        if (year === 2026 && month === 4) {
-            const paidDescriptions = [
-                "PASSAGENS AÉREAS", "PASSAGENS DE ONIBUS", "MALA DO ANDRÉ",
-                "RENEGOCIAR CARREFOUR", "APPAILDO ANDRÉ", "INTERMÉDICA DO ANDRÉ",
-                "GUARDA ROUPAS", "REFORMA DO SOFÁ DE CAXIAS", "FACULDADE DA MARCELLY",
-                "INTERNET DA CASA", "MARCIA BRITO"
-            ];
-            
-            // NOTE: We do not update bankReserves here to avoid double-deduction 
-            // if triggered multiple times. The user should toggle them manually
-            // to maintain control, or I should handle it differently.
-            // Actually, if I am forcing them to paid, I MUST assume they were not paid before.
-            // I will NOT force them to paid here and let the user handle it, 
-            // or I will move the deduction logic to a place that handles both.
-            
-            // Actually, let's keep the forcing as PAID, but NOT deduct from reserves 
-            // in ensureSystemIntegrity. Instead, if the app detects them as unpaid 
-            // but forced to paid, I can have an effect to sync reserves. 
-            // Too complex. Let's just remove the forced-to-paid logic for these 
-            // and let the user toggle them. That seems safest.
-            /*
+        // 4. June 2026 Specific Logic (Restored)
+        if (year === 2026 && month === 6) {
             data.expenses = data.expenses.map(e => {
-                if (paidDescriptions.some(desc => e.description.toUpperCase().includes(desc))) {
-                    return { ...e, paid: true, paidAt: new Date().toISOString() };
-                }
+                const desc = e.description.toUpperCase();
+                if (desc.includes("EMPRÉSTIMO COM LILI")) return { ...e, installments: { current: 2, total: 5 }, amount: 800.00 };
+                if (desc.includes("EMPRÉSTIMO COM MARCIA BISPO")) return { ...e, installments: { current: 1, total: 4 }, amount: 275.00 };
                 return e;
             });
-            */
-            // The user wants me to mark them as paid now. I will do it.
-            // I'll just change them here and I'll need to figure out how to update reserves.
-            // Actually, for now, let me just remove the automated forcing 
-            // for these specific items in "ensureSystemIntegrity" 
-            // and let the user toggle them themselves if they haven't. Wait, the user already said they did.
-            // Let me just remove the auto-force to paid for these items to fix the discrepancy.
-            return data;
         }
 
         // 5. Ensure May 2026 Incomes are present
@@ -382,7 +567,7 @@ const App: React.FC = () => {
         if (local) {
             setMonthData(ensureSystemIntegrity(JSON.parse(local), year, month));
         } else {
-            const newData = generateMonthData(year, month);
+            const newData = ensureSystemIntegrity(generateMonthData(year, month), year, month);
             setMonthData(newData);
             saveData(newData, year, month);
         }
@@ -620,8 +805,11 @@ const App: React.FC = () => {
         const allItems = [...monthData.expenses, ...monthData.avulsosItems];
         
         allItems.forEach(e => {
-            if (e.group && e.group !== 'Moradia' && e.group !== 'Despesas Fixas' && e.group !== 'Despesas Variáveis' && !e.isDistribution) {
-                const name = e.group.toUpperCase();
+            const groupNormal = e.group ? e.group.toUpperCase() : '';
+            const excludedGroups = ['MORADIA', 'DESPESAS FIXAS', 'DESPESAS VARIÁVEIS', 'DESPESAS VARIAVEIS'];
+            
+            if (groupNormal && !excludedGroups.includes(groupNormal) && !e.isDistribution) {
+                const name = groupNormal;
                 if (!groups[name]) groups[name] = { name, total: 0, paidAmount: 0, items: [] };
                 groups[name].total += e.amount;
                 if (e.paid) groups[name].paidAmount += e.amount;
@@ -639,6 +827,7 @@ const App: React.FC = () => {
         if (name.includes('CLAUDIO')) return 'from-emerald-600 to-teal-700';
         if (name.includes('REBECCA')) return 'from-teal-500 to-emerald-600';
         if (name.includes('IAGO')) return 'from-emerald-400 to-teal-500';
+        if (name.includes('DÍVIDAS NA RUA') || name.includes('DIVIDAS NA RUA')) return 'from-rose-400 to-orange-500';
         return 'from-emerald-700 to-teal-800';
     };
 
@@ -785,8 +974,17 @@ const App: React.FC = () => {
                                                 </div>
 
                                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                                    <div className="flex flex-col gap-1">
-                                                        <span className="text-sm font-black uppercase tracking-[0.2em] opacity-80">Receitas</span>
+                                                    <div 
+                                                        onClick={() => {
+                                                            setView('transactions');
+                                                            setTransactionListType('incomes');
+                                                        }}
+                                                        className="flex flex-col gap-1 cursor-pointer hover:bg-white/10 p-2 rounded-2xl transition-all group/stat"
+                                                    >
+                                                        <span className="text-sm font-black uppercase tracking-[0.2em] opacity-80 group-hover/stat:opacity-100 flex items-center gap-1">
+                                                            Receitas
+                                                            <ArrowRight size={14} className="opacity-0 group-hover/stat:opacity-100 transition-all -translate-x-2 group-hover/stat:translate-x-0" />
+                                                        </span>
                                                         <div className="flex items-baseline gap-1">
                                                             <span className="text-xl lg:text-2xl font-black tracking-tighter">
                                                                 {formatCurrency(stats.combined.total)}
@@ -803,8 +1001,17 @@ const App: React.FC = () => {
                                                         </div>
                                                     </div>
 
-                                                    <div className="flex flex-col gap-1">
-                                                        <span className="text-sm font-black uppercase tracking-[0.2em] opacity-80">Despesas</span>
+                                                    <div 
+                                                        onClick={() => {
+                                                            setView('transactions');
+                                                            setTransactionListType('expenses');
+                                                        }}
+                                                        className="flex flex-col gap-1 cursor-pointer hover:bg-white/10 p-2 rounded-2xl transition-all group/stat"
+                                                    >
+                                                        <span className="text-sm font-black uppercase tracking-[0.2em] opacity-80 group-hover/stat:opacity-100 flex items-center gap-1">
+                                                            Despesas
+                                                            <ArrowRight size={14} className="opacity-0 group-hover/stat:opacity-100 transition-all -translate-x-2 group-hover/stat:translate-x-0" />
+                                                        </span>
                                                         <div className="flex items-baseline gap-1">
                                                             <span className="text-xl lg:text-2xl font-black tracking-tighter text-emerald-100">
                                                                 {formatCurrency(stats.realExpenses.total)}
@@ -891,12 +1098,13 @@ const App: React.FC = () => {
                                             </div>
 
                                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                                {['Moradia', 'Lazer', 'Saúde', 'Outros', 'Transporte', 'Educação'].map(cat => {
+                                                {['Moradia', 'Lazer', 'Saúde', 'Outros', 'DÍVIDAS NA RUA'].map(cat => {
                                                     const amount = monthData.expenses.filter(e => e.category === cat).reduce((s, e) => s + e.amount, 0);
                                                     const totalExpenses = stats.realExpenses.total || 1;
                                                     const percent = Math.round((amount / totalExpenses) * 100);
                                                     
                                                     const getCatStyle = (c: string) => {
+                                                        if (c === 'DÍVIDAS NA RUA') return { bg: 'bg-rose-50', text: 'text-rose-600', bar: 'bg-rose-500', icon: ShoppingCart };
                                                         if (c === 'Moradia') return { bg: 'bg-blue-50', text: 'text-blue-600', bar: 'bg-blue-500', icon: HomeIcon };
                                                         if (c === 'Lazer') return { bg: 'bg-emerald-50', text: 'text-emerald-600', bar: 'bg-emerald-500', icon: Palmtree };
                                                         if (c === 'Saúde') return { bg: 'bg-rose-50', text: 'text-rose-600', bar: 'bg-rose-500', icon: Heart };

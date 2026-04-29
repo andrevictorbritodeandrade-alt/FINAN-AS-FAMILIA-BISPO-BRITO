@@ -52,18 +52,6 @@ const Header: React.FC<HeaderProps> = ({
                 </div>
                 <div className="flex items-center gap-2">
                     <button 
-                        onClick={() => {
-                            if (window.confirm("Isso irá recarregar os dados padrão deste mês. Deseja continuar?")) {
-                                localStorage.removeItem(`financeData_${year}_${month}`);
-                                window.location.reload();
-                            }
-                        }}
-                        className="p-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-all font-black border border-white/10"
-                        title="Resetar Mês"
-                    >
-                        <RefreshCw size={16} strokeWidth={4} />
-                    </button>
-                    <button 
                         onClick={onSync}
                         className={`p-1.5 rounded-lg transition-all border border-white/10 shadow-lg ${
                             syncStatus === 'online' ? 'bg-emerald-400 text-white' :
