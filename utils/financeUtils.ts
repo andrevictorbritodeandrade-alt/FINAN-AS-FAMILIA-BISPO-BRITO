@@ -152,6 +152,7 @@ export const generateMonthData = (year: number, month: number): MonthData => {
         });
     });
 
+    // Consolidate avulsos below
     // 2. INSTALLMENT EXPENSES
     const finiteConfig = [
         { desc: "GUARDA ROUPAS", totalAmount: 914.48, cat: "Moradia", day: 12, installments: 5, sY: 2026, sM: 2, group: 'MARCIA BRITO' },
@@ -177,6 +178,7 @@ export const generateMonthData = (year: number, month: number): MonthData => {
         { desc: "CABESOM", totalAmount: 179.00, cat: "Outros", day: 28, installments: 2, sY: 2026, sM: 5, group: 'MARCIA BRITO' },
         { desc: "REMÉDIOS (MARCIA BRITO)", totalAmount: 246.09, cat: "Saúde", day: 28, installments: 3, sY: 2026, sM: 5, group: 'MARCIA BRITO' }
     ];
+
 
     finiteConfig.forEach(f => {
         const inst = getInstallmentInfo(f.sY, f.sM, f.installments, year, month);
@@ -214,9 +216,12 @@ export const generateMonthData = (year: number, month: number): MonthData => {
         );
     }
     if (year === 2026 && month === 5) {
-        // Adding to expenses directly for May as requested
-        newExpenses.push(
-            { id: `avulso_may_iago`, description: 'Compras', amount: 1300, paid: false, category: 'Alimentação', dueDate: '2026-05-07', group: 'IAGO' }
+        newAvulsosItems.push(
+            { id: `avulso_may_iago`, description: 'Compras', amount: 1300, paid: false, category: 'Alimentação', dueDate: '2026-05-07', group: 'IAGO' },
+            // Moved from April as requested (uses May salary)
+            { id: `avulso_combustivel_may`, description: "COMBUSTÍVEL (30/04)", amount: 50.00, category: "Transporte", paid: true, dueDate: "2026-04-30", date: "2026-04-30" },
+            { id: `avulso_mercado_may`, description: "MERCADO (29/04)", amount: 187.28, category: "Alimentação", paid: true, dueDate: "2026-04-29", date: "2026-04-29" },
+            { id: `avulso_agua_may`, description: "COMPRA DA ÁGUA (29/04)", amount: 10.00, category: "Alimentação", paid: true, dueDate: "2026-04-29", date: "2026-04-29" }
         );
     }
 

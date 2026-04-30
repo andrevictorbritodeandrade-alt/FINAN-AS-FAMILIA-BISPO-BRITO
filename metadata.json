@@ -1,5 +1,6 @@
 {
-  "name": "Remix: Finanças AI",
+  "name": "OFICIAL Finanças AI",
   "description": "Seu controle financeiro inteligente com a ajuda da Gemini AI.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [],
+  "majorCapabilities": []
 }

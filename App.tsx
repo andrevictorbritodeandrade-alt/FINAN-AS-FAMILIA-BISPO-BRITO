@@ -75,35 +75,41 @@ const App: React.FC = () => {
         localStorage.setItem(`checkin_${currentYear}_${currentMonth}`, JSON.stringify(newState));
     };
 
-    // Force refresh to pull updated categories and grouping (v22)
+    // Force refresh to pull updated categories and grouping (v25)
     useEffect(() => {
-        const forceUpdateV22 = localStorage.getItem('force_update_v22_marcia_bispo_may_june_correction');
-        if (!forceUpdateV22) {
+        const forceUpdateV25 = localStorage.getItem('force_update_v25_avulsos_explicit_dates');
+        if (!forceUpdateV25) {
             localStorage.removeItem('financeData_2026_4');
             localStorage.removeItem('financeData_2026_5');
-            localStorage.removeItem('financeData_2026_6');
-            localStorage.setItem('force_update_v22_marcia_bispo_may_june_correction', 'true');
+            localStorage.setItem('force_update_v25_avulsos_explicit_dates', 'true');
             window.location.reload();
         }
     }, []);
 
-    // User request: Update Santander balance and transfer to Sofisa (April 2026)
+    // User request: Update Santander balance (April/May 2026)
     useEffect(() => {
         if (!monthData) return;
-        const processedKey = 'processed_santander_sofisa_transfer_2026_4_v1';
+        const processedKey = 'processed_balances_apr_may_v24_fix';
         if (localStorage.getItem(processedKey)) return;
 
-        // Balance logic: Santander was 5122.09, transferred 4351 to Sofisa.
-        // Final Santander: 771.09
-        // Final Sofisa: current + 4351
+        // Balance before avulsos deduction was 771.09 in Santander
+        let santanderBase = 771.09;
+        let sofisaBase = bankReserves.sofisa;
+
+        // If we are in May, apply the deduction of R$ 247.28
+        if (currentYear === 2026 && currentMonth === 5) {
+            santanderBase -= 247.28;
+        }
+
         setBankReserves(prev => ({
             ...prev,
-            santander: 771.09,
-            sofisa: Math.round((prev.sofisa + 4351) * 100) / 100
+            santander: Math.round(santanderBase * 100) / 100,
+            // Ensure Sofia gets the 4351 transfer if not already applied
+            sofisa: prev.sofisa < 8000 ? Math.round((prev.sofisa + 4351) * 100) / 100 : prev.sofisa
         }));
 
         localStorage.setItem(processedKey, 'true');
-    }, [monthData]);
+    }, [monthData, currentYear, currentMonth]);
 
     // User request: Mark specific items as paid and deduct from Santander
     useEffect(() => {
@@ -208,6 +214,8 @@ const App: React.FC = () => {
             localStorage.setItem(processedKey, 'true');
         }
     }, [monthData, currentYear, currentMonth]);
+
+    // User request: Avulsos are now baked into defaults in financeUtils.ts
 
     // Automatic salary payment
     useEffect(() => {
