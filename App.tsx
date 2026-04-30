@@ -5,15 +5,64 @@ import Sidebar from './components/Sidebar';
 import SummaryCard from './components/SummaryCard';
 import TransactionList from './components/TransactionList';
 import Statistics from './components/Statistics';
+import Settlements from './components/Settlements';
 import EditTransactionModal from './components/EditTransactionModal';
 import FinancialHealthWidget from './components/FinancialHealthWidget';
-import { MonthData, TransactionType, Transaction, FinancialProjection } from './types';
+import { MonthData, TransactionType, Transaction, FinancialProjection, DebtSettlement } from './types';
 import { generateMonthData, getStorageKey } from './utils/financeUtils';
 import { db, auth, isConfigured, onAuthStateChanged, signInAnonymously } from './services/firebaseConfig';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { FAMILY_ID } from './constants';
 import { Target, Plus, ShoppingBag, User, Users, ArrowRight, Plane, Wallet, PiggyBank, Home as HomeIcon, Palmtree, Heart, Car, GraduationCap, MoreHorizontal, TrendingUp, ShoppingCart, FileWarning } from 'lucide-react';
 import { formatCurrency } from './utils/financeUtils';
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  }
+}
+
+const handleFirestoreError = (error: unknown, operationType: OperationType, path: string | null) => {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth?.currentUser?.uid,
+      email: auth?.currentUser?.email,
+      emailVerified: auth?.currentUser?.emailVerified,
+      isAnonymous: auth?.currentUser?.isAnonymous,
+      tenantId: auth?.currentUser?.tenantId,
+      providerInfo: auth?.currentUser?.providerData?.map(provider => ({
+        providerId: provider.providerId,
+        email: provider.email,
+      })) || []
+    },
+    operationType,
+    path
+  };
+  const jsonError = JSON.stringify(errInfo);
+  console.error("Firestore Error: ", jsonError);
+  throw new Error(jsonError);
+};
 
 const App: React.FC = () => {
     // App State
@@ -23,7 +72,7 @@ const App: React.FC = () => {
     const [currentMonth, setCurrentMonth] = useState(isLateApril ? 5 : now.getMonth() + 1);
     const [currentYear, setCurrentYear] = useState(isLateApril ? 2026 : now.getFullYear());
     const [monthData, setMonthData] = useState<MonthData | null>(null);
-    const [view, setView] = useState<'home' | 'transactions' | 'statistics'>('home');
+    const [view, setView] = useState<'home' | 'transactions' | 'statistics' | 'settlements'>('home');
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [syncStatus, setSyncStatus] = useState<'offline' | 'syncing' | 'online'>('offline');
     const [transactionListType, setTransactionListType] = useState<TransactionType>('expenses');
@@ -31,50 +80,63 @@ const App: React.FC = () => {
     const [filter, setFilter] = useState<{ type: 'group' | 'none', value: string }>({ type: 'none', value: '' });
 
     const [showSecurityMessage, setShowSecurityMessage] = useState(false);
+    const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+    useEffect(() => {
+        const handler = (e: any) => {
+            e.preventDefault();
+            setDeferredPrompt(e);
+        };
+        window.addEventListener('beforeinstallprompt', handler);
+        return () => window.removeEventListener('beforeinstallprompt', handler);
+    }, []);
+
+    const handleInstallClick = () => {
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then((choiceResult: any) => {
+            if (choiceResult.outcome === 'accepted') {
+                console.log('User accepted the install prompt');
+            }
+            setDeferredPrompt(null);
+        });
+    };
 
     // Edit Modal State
     const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
     const [checkIn, setCheckIn] = useState<{ isDone: boolean; date: string | null }>({ isDone: false, date: null });
-    const [bankReserves, setBankReserves] = useState<{ santander: number; inter: number; sofisa: number }>(() => {
-        const saved = localStorage.getItem('bankReserves');
-        return saved ? JSON.parse(saved) : { santander: 0, inter: 0, sofisa: 0 };
-    });
+    const [bankReserves, setBankReserves] = useState<{ santander: number; inter: number; sofisa: number }>({ santander: 0, inter: 0, sofisa: 0 });
 
-    // Persist bank reserves
+    // Handle checkin dependency
     useEffect(() => {
-        localStorage.setItem('bankReserves', JSON.stringify(bankReserves));
-    }, [bankReserves]);
-
-    // Initialize reserves with salaries (run only once, or if reserves are 0/unset)
-    useEffect(() => {
-        if (monthData) {
-            const saved = localStorage.getItem('bankReserves');
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                if (parsed.santander !== 0 || parsed.inter !== 0 || parsed.sofisa !== 0) return;
-            }
-
-            const totalSalary = monthData.incomes
-                .filter(i => i.category === 'Salário')
-                .reduce((sum, item) => sum + item.amount, 0);
-            
-            setBankReserves({ santander: totalSalary, inter: 0, sofisa: 0 });
+        if (monthData?.checkIn) {
+            setCheckIn(monthData.checkIn);
+        } else {
+            setCheckIn({ isDone: false, date: null });
         }
     }, [monthData]);
-    useEffect(() => {
-        const saved = localStorage.getItem(`checkin_${currentYear}_${currentMonth}`);
-        if (saved) setCheckIn(JSON.parse(saved));
-        else setCheckIn({ isDone: false, date: null });
-    }, [currentYear, currentMonth]);
 
     const handleCheckIn = () => {
+        if (!monthData) return;
         const date = new Date().toISOString();
         const newState = { isDone: true, date };
         setCheckIn(newState);
-        localStorage.setItem(`checkin_${currentYear}_${currentMonth}`, JSON.stringify(newState));
+        saveData({ ...monthData, checkIn: newState }, currentYear, currentMonth);
     };
+
+    const handleUpdateSettlements = (newSettlements: DebtSettlement[]) => {
+        if (!monthData) return;
+        saveData({ ...monthData, debtSettlements: newSettlements }, currentYear, currentMonth);
+    };
+
+    // Derived Bank Balance
+    useEffect(() => {
+        if (monthData?.bankReserves) {
+            setBankReserves(monthData.bankReserves);
+        }
+    }, [monthData]);
 
     // Force refresh to pull updated categories and grouping (v33)
     useEffect(() => {
@@ -90,26 +152,32 @@ const App: React.FC = () => {
     useEffect(() => {
         if (!monthData) return;
         
+        let newReserves = { ...bankReserves };
+
         if (currentYear === 2026 && currentMonth === 5) {
-            setBankReserves({
+            newReserves = {
                 santander: 973.64,
                 inter: 0,
                 sofisa: 4351.00
-            });
-            return;
+            };
+        } else {
+            // Fallback for other months
+            const initialRevenue = 7643.53;
+            const sofisaTransfer = 4351.00;
+            const totalPaidExpenses = monthData.expenses.filter(e => e.paid && !e.skipped).reduce((sum, e) => sum + e.amount, 0);
+            const totalPaidAvulsos = monthData.avulsosItems.filter(e => e.paid && !e.skipped).reduce((sum, e) => sum + e.amount, 0);
+            const currentSantander = initialRevenue - sofisaTransfer - totalPaidExpenses - totalPaidAvulsos;
+            
+            newReserves = {
+                ...bankReserves,
+                santander: Math.max(0, Math.round(currentSantander * 100) / 100)
+            };
         }
 
-        // Fallback for other months
-        const initialRevenue = 7643.53;
-        const sofisaTransfer = 4351.00;
-        const totalPaidExpenses = monthData.expenses.filter(e => e.paid && !e.skipped).reduce((sum, e) => sum + e.amount, 0);
-        const totalPaidAvulsos = monthData.avulsosItems.filter(e => e.paid && !e.skipped).reduce((sum, e) => sum + e.amount, 0);
-        const currentSantander = initialRevenue - sofisaTransfer - totalPaidExpenses - totalPaidAvulsos;
-        
-        setBankReserves(prev => ({
-            ...prev,
-            santander: Math.max(0, Math.round(currentSantander * 100) / 100)
-        }));
+        // Only update state and save if different from current
+        if (JSON.stringify(newReserves) !== JSON.stringify(monthData.bankReserves)) {
+            saveData({ ...monthData, bankReserves: newReserves }, currentYear, currentMonth);
+        }
     }, [monthData, currentYear, currentMonth]);
 
     // User request: Avulsos are now baked into defaults in financeUtils.ts
@@ -191,6 +259,14 @@ const App: React.FC = () => {
 
 
     const ensureSystemIntegrity = (data: MonthData, year: number, month: number): MonthData => {
+        // Initialize debt settlements if missing
+        if (!data.debtSettlements || data.debtSettlements.length === 0) {
+            data.debtSettlements = [
+                { id: 'set_nubank', description: 'Acordo Nubank (À Vista)', amount: 700, priority: 1, isPaid: false, notes: 'Pagamento via PIX' },
+                { id: 'set_itau_marcelly', description: 'Acordo Itaú Marcelly (À Vista)', amount: 400, priority: 2, isPaid: false, notes: 'Pagamento via PIX' }
+            ];
+        }
+
         // User request (May 2026 Cycle): Absolute corrections
         if (year === 2026 && month === 5) {
             // 1. DELETE SPECIFIC REMOVALS REQUESTED
@@ -363,6 +439,7 @@ const App: React.FC = () => {
         }
 
         const docRef = doc(db, 'families', FAMILY_ID, 'months', `${year}_${month}`);
+        const path = `families/${FAMILY_ID}/months/${year}_${month}`;
         
         const unsubscribe = onSnapshot(docRef, (snapshot) => {
             if (snapshot.exists()) {
@@ -378,8 +455,7 @@ const App: React.FC = () => {
                 }
             }
         }, (error) => {
-            console.error("Firestore Listener Error", error);
-            setSyncStatus('offline');
+            handleFirestoreError(error, OperationType.GET, path);
         });
 
         unsubscribeRef.current = unsubscribe;
@@ -395,13 +471,13 @@ const App: React.FC = () => {
 
         if (isConfigured && auth?.currentUser) {
             setSyncStatus('syncing');
+            const path = `families/${FAMILY_ID}/months/${year}_${month}`;
             try {
                 const docRef = doc(db, 'families', FAMILY_ID, 'months', `${year}_${month}`);
                 await setDoc(docRef, updatedData);
                 setSyncStatus('online');
             } catch (e) {
-                console.error("Save Error", e);
-                setSyncStatus('offline');
+                handleFirestoreError(e, OperationType.WRITE, path);
             }
         }
     };
@@ -658,6 +734,8 @@ const App: React.FC = () => {
                     onSync={() => saveData(monthData, currentYear, currentMonth)}
                     currentView={view}
                     onNavigate={setView}
+                    onInstall={handleInstallClick}
+                    canInstall={!!deferredPrompt}
                 />
 
                 <EditTransactionModal 
@@ -937,6 +1015,23 @@ const App: React.FC = () => {
                                 className="w-full flex flex-col gap-8 max-w-7xl mx-auto"
                             >
                                 <Statistics monthData={monthData} currentMonth={currentMonth} currentYear={currentYear} />
+                            </motion.div>
+                        )}
+
+                        {view === 'settlements' && (
+                            <motion.div
+                                key="settlements"
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -20 }}
+                                transition={{ duration: 0.5 }}
+                                className="w-full flex flex-col gap-8 max-w-7xl mx-auto"
+                            >
+                                <Settlements 
+                                    monthData={monthData} 
+                                    onUpdateSettlements={handleUpdateSettlements} 
+                                    onBack={() => setView('home')}
+                                />
                             </motion.div>
                         )}
 

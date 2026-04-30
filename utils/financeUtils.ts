@@ -1,4 +1,4 @@
-import { MonthData, Transaction, Goal } from '../types';
+import { MonthData, Transaction, Goal, DebtSettlement } from '../types';
 import { PAYMENT_SCHEDULE, INITIAL_ACCOUNTS, MONTH_NAMES } from '../constants';
 
 // Helper to get local data key
@@ -90,7 +90,7 @@ export const generateMonthData = (year: number, month: number): MonthData => {
     const paidInMar2026 = ["ALUGUEL", "APPAI", "FATURA DO CARTÃO DO ANDRÉ ITAÚ", "CELULAR DA MARCELLY", "LILI TORRES", "JADY"];
     
     // List of items paid in Apr 2026
-    const paidInApr2026 = ["ALUGUEL", "APPAI DO ANDRÉ", "INTERNET DA CASA", "INTERMÉDICA DO ANDRÉ", "SEGURO DO CARRO", "GUARDA ROUPAS", "FACULDADE", "PASSAGENS AÉREAS", "ESTADIA", "PASSAGENS ONIBUS", "MALA DO ANDRÉ", "RENEGOCIAR CARREFOUR", "EMPRÉSTIMO", "CARTÃO DO ITAÚ DA MARCELLY", "CLARO DA MARCELLY", "MÃO DE OBRA"];
+    const paidInApr2026 = ["ALUGUEL", "APPAI DO ANDRÉ", "INTERNET DA CASA", "INTERMÉDICA DO ANDRÉ", "SEGURO DO CARRO", "GUARDA ROUPAS", "FACULDADE", "MALA DO ANDRÉ", "RENEGOCIAR CARREFOUR", "EMPRÉSTIMO", "CARTÃO DO ITAÚ DA MARCELLY", "CLARO DA MARCELLY", "MÃO DE OBRA", "REMÉDIO PARA CUPIM"];
 
     // 1. RECURRING/FIXED EXPENSES
     const cyclicalConfig = [
@@ -106,7 +106,8 @@ export const generateMonthData = (year: number, month: number): MonthData => {
         { description: "CONTA DA VIVO ANDRÉ", amount: 110.00, category: "Moradia", day: 5, group: 'MORADIA' },
         { description: "SEGURO DO CARRO", amount: 143.00, category: "Moradia", day: 20, group: 'MORADIA' },
         { description: "CONTA DA VIVO MARCELLY", amount: 66.60, category: "Moradia", day: 23, group: 'MORADIA' },
-        { description: "CONTA DA CLARO DA MARCELLY", amount: 34.90, category: "Moradia", day: 5, group: 'MORADIA' }
+        { description: "CONTA DA CLARO DA MARCELLY", amount: 34.90, category: "Moradia", day: 5, group: 'MORADIA' },
+        { description: "COMPRAS IAGO", amount: 83.00, category: "Alimentação", day: 25, group: 'IAGO' }
     ];
 
     cyclicalConfig.forEach(c => {
@@ -172,6 +173,8 @@ export const generateMonthData = (year: number, month: number): MonthData => {
         { desc: "PASSAGENS AÉREAS SP X JOBURG", totalAmount: 4038.96, cat: "Lazer", day: 4, installments: 8, sY: 2025, sM: 12, group: 'LILI TORRES' },
         { desc: "CIDADANIA PORTUGUESA", totalAmount: 5180.00, cat: "Dívidas", day: 12, installments: 37, sY: 2024, sM: 11, group: 'REBECCA BRITO' },
         { desc: "PASSEIO DE SAFARI", totalAmount: 3429.60, cat: "Lazer", day: 10, installments: 6, sY: 2026, sM: 3, group: 'JADY' },
+        { desc: "EMPRÉSTIMO COM MARCIA BISPO", totalAmount: 400.00, cat: "Dívidas", day: 15, installments: 4, sY: 2026, sM: 4, group: 'MARCIA BISPO' },
+        { desc: "REMÉDIO PARA CUPIM", totalAmount: 37.00, cat: "Saúde", day: 28, installments: 1, sY: 2026, sM: 4, group: 'MARCIA BRITO' },
         { desc: "MÃO DE OBRA DO DAVI", totalAmount: 372.82, cat: "Moradia", day: 12, installments: 3, sY: 2026, sM: 5, group: 'MARCIA BRITO' },
         { desc: "KR AUTOPEÇAS", totalAmount: 291.00, cat: "Transporte", day: 12, installments: 7, sY: 2026, sM: 5, group: 'MARCIA BRITO' },
         { desc: "FILHÃO AUTOPEÇAS", totalAmount: 120.00, cat: "Transporte", day: 12, installments: 3, sY: 2026, sM: 5, group: 'MARCIA BRITO' },
@@ -224,6 +227,11 @@ export const generateMonthData = (year: number, month: number): MonthData => {
         );
     }
 
+    const defaultSettlements: DebtSettlement[] = [
+        { id: 'set_nubank', description: 'Acordo Nubank (À Vista)', amount: 700, priority: 1, isPaid: false, notes: 'Pagamento via PIX' },
+        { id: 'set_itau_marcelly', description: 'Acordo Itaú Marcelly (À Vista)', amount: 400, priority: 2, isPaid: false, notes: 'Pagamento via PIX' }
+    ];
+
     return {
         incomes: newIncomes,
         expenses: newExpenses,
@@ -231,6 +239,7 @@ export const generateMonthData = (year: number, month: number): MonthData => {
         avulsosItems: newAvulsosItems,
         goals: [], // Goals removed as requested
         bankAccounts: INITIAL_ACCOUNTS,
+        debtSettlements: defaultSettlements,
         updatedAt: Date.now()
     };
 };

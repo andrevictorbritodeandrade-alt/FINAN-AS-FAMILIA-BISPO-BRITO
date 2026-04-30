@@ -38,6 +38,16 @@ export interface BankAccount {
   balance: number;
 }
 
+export interface DebtSettlement {
+  id: string;
+  description: string;
+  amount: number;
+  priority: number;
+  isPaid: boolean;
+  notes?: string;
+  targetMonth?: string; // Goal month to pay this off
+}
+
 export interface MonthData {
   incomes: Transaction[];
   expenses: Transaction[];
@@ -45,6 +55,9 @@ export interface MonthData {
   avulsosItems: Transaction[];
   goals: Goal[];
   bankAccounts: BankAccount[];
+  bankReserves?: { santander: number; inter: number; sofisa: number };
+  checkIn?: { isDone: boolean; date: string | null };
+  debtSettlements?: DebtSettlement[]; // New field for at-sight debt planning
   updatedAt: number;
 }
 

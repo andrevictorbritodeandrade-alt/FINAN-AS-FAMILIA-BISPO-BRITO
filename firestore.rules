@@ -1,20 +1,64 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper to check if user is authenticated
-    function isAuthenticated() {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
       return request.auth != null;
     }
 
-    match /families/{familyId}/months/{monthId} {
-      // Allow read and write (create/update) but DENY delete
-      allow read, create, update: if isAuthenticated();
-      allow delete: if false; // Never allow deletion of financial data
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
-    // Default deny for everything else
-    match /{document=**} {
-      allow read, write: if false;
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Validation Blueprint for MonthData
+    function isValidMonthData(data) {
+      return data.keys().hasAll(['incomes', 'expenses', 'updatedAt'])
+          && data.updatedAt is number
+          && data.incomes is list
+          && data.expenses is list
+          && (data.shoppingItems == null || data.shoppingItems is list)
+          && (data.avulsosItems == null || data.avulsosItems is list)
+          && (data.bankAccounts == null || data.bankAccounts is list);
+    }
+
+    match /families/{familyId}/months/{yearMonth} {
+      // 3. Path Variable Hardening
+      allow get: if isSignedIn() && isValidId(familyId) && isValidId(yearMonth);
+      
+      // 8. Secure List Queries (though we use doc level onSnapshot)
+      allow list: if isSignedIn() && isValidId(familyId);
+
+      allow create: if isSignedIn() 
+          && isValidId(familyId) 
+          && isValidId(yearMonth)
+          && isValidMonthData(incoming())
+          && incoming().updatedAt is number;
+
+      allow update: if isSignedIn() 
+          && isValidId(familyId) 
+          && isValidId(yearMonth)
+          && isValidMonthData(incoming())
+          // 4. Tiered Identity Logic: Ensure only newer data overwrites
+          && (incoming().updatedAt >= existing().updatedAt);
+          
+      // 1. The "Master Gate" (Relational Sync) - No subcollections here yet
+      
+      // 12. Terminal State Locking - No terminal state in this simple app yet
+      
+      allow delete: if false; // 1. The Invariant: No deletion allowed
     }
   }
 }

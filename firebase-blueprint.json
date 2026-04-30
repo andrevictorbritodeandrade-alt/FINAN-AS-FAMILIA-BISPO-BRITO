@@ -1,0 +1,25 @@
+{
+  "entities": {
+    "MonthData": {
+      "title": "Monthly Financial Data",
+      "description": "Financial records for a specific month and family.",
+      "type": "object",
+      "properties": {
+        "incomes": { "type": "array", "description": "List of income transactions" },
+        "expenses": { "type": "array", "description": "List of expense transactions" },
+        "shoppingItems": { "type": "array", "description": "List of shopping items (Mumbuca)" },
+        "avulsosItems": { "type": "array", "description": "List of one-off transactions" },
+        "bankAccounts": { "type": "array", "description": "List of bank accounts and balances" },
+        "goals": { "type": "array", "description": "List of financial goals" },
+        "updatedAt": { "type": "number", "description": "Timestamp of last update" }
+      },
+      "required": ["incomes", "expenses", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/families/{familyId}/months/{yearMonth}": {
+      "schema": "MonthData",
+      "description": "Financial data for a family in a specific year and month."
+    }
+  }
+}

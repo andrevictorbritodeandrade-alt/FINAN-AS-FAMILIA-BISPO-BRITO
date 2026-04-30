@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Cloud, CloudOff, RefreshCw, Plus, Home, List, Target, Wallet } from 'lucide-react';
+import { X, Cloud, CloudOff, RefreshCw, Home, List, Smartphone } from 'lucide-react';
 import { BankAccount } from '../types';
 import { formatCurrency } from '../utils/financeUtils';
 
@@ -9,15 +9,17 @@ interface SidebarProps {
     accounts: BankAccount[];
     syncStatus: 'online' | 'offline' | 'syncing';
     onSync: () => void;
-    currentView: 'home' | 'transactions';
-    onNavigate: (view: 'home' | 'transactions') => void;
+    currentView: 'home' | 'transactions' | 'statistics' | 'settlements';
+    onNavigate: (view: 'home' | 'transactions' | 'statistics' | 'settlements') => void;
+    onInstall: () => void;
+    canInstall: boolean;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, accounts, syncStatus, onSync, currentView, onNavigate }) => {
+const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, accounts, syncStatus, onSync, currentView, onNavigate, onInstall, canInstall }) => {
     const format = (v: number) => formatCurrency(v);
     const totalBalance = accounts.reduce((acc, curr) => acc + curr.balance, 0);
 
-    const handleNav = (view: 'home' | 'transactions') => {
+    const handleNav = (view: 'home' | 'transactions' | 'statistics' | 'settlements') => {
         onNavigate(view);
         onClose();
     };
@@ -56,6 +58,20 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, accounts, syncStatus
                             <button onClick={() => handleNav('transactions')} className={getNavClass('transactions')}>
                                 <List size={22} strokeWidth={3} /> Extrato Detalhado
                             </button>
+                            <button onClick={() => handleNav('settlements')} className={getNavClass('settlements')}>
+                                <RefreshCw size={22} strokeWidth={3} /> Quitações
+                            </button>
+                            <button onClick={() => handleNav('statistics')} className={getNavClass('statistics')}>
+                                <RefreshCw size={22} strokeWidth={3} /> Estatísticas
+                            </button>
+                            {canInstall && (
+                               <button 
+                                   onClick={() => { onInstall(); onClose(); }} 
+                                   className="flex items-center gap-3 w-full p-3.5 rounded-2xl transition-all font-black text-sm bg-teal-600 text-white shadow-lg shadow-teal-900/20 mt-4 animate-pulse"
+                               >
+                                    <Smartphone size={22} strokeWidth={3} /> Instalar Aplicativo
+                               </button>
+                            )}
 
                          </div>
                     </section>
