@@ -325,14 +325,28 @@ const App: React.FC = () => {
             data.expenses = data.expenses.map(e => {
                 const desc = e.description.toUpperCase();
                 
-                // Aluguel set to 1300 and Unpaid
+                // Aluguel set to 1300 and Mark as Paid on May 4th
                 if (desc === "ALUGUEL") {
-                    return { ...e, amount: 1300.00, paid: false, paidAt: undefined };
+                    return { ...e, amount: 1300.00, paid: true, paidAt: "2026-05-04T12:00:00Z" };
                 }
 
-                // Claros and Car Insurance to Unpaid
+                // Claros and Car Insurance to Unpaid (reset to ensure latest status)
                 if ((desc.includes("CLARO") && !desc.includes("EMPRÉSTIMO")) || desc.includes("SEGURO DO CARRO")) {
+                    // But if it was paid in Apr logic, keep it? No, user says "dar baixa no valor do aluguel"
+                    // implies they are actively reporting May payments.
                     return { ...e, paid: false, paidAt: undefined };
+                }
+
+                // Iago: Correct amount and mark as paid on May 4th
+                if (desc.includes("COMPRAS IAGO")) {
+                    return { ...e, amount: 1347.72, paid: true, paidAt: "2026-05-04T12:00:00Z" };
+                }
+
+                // Lili Torres Travel Installments: Sum is 1178.97 (paid on May 4th)
+                if (desc.includes("ESTADIA") || desc.includes("PASSAGENS AÉREAS SP X JOBURG")) {
+                    if (e.group === 'LILI TORRES') {
+                        return { ...e, paid: true, paidAt: "2026-05-04T12:00:00Z" };
+                    }
                 }
 
                 // Mark specific realized payments (Subtract from Santander logic)

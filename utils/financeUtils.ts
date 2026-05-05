@@ -46,15 +46,19 @@ export const generateMonthData = (year: number, month: number): MonthData => {
     const salaryDaySuffix = PAYMENT_SCHEDULE[prevMonth] || '-28'; 
     const salaryDate = `${prevYear}${salaryDaySuffix}`;
 
+    const isMay2026 = (year === 2026 && month === 5);
+
     // Pattern: Mumbuca day is 15 of CURRENT month.
-    const mumbucaDate = `${year}-${month.toString().padStart(2,'0')}-15`;
+    let mumbucaDate = `${year}-${month.toString().padStart(2,'0')}-15`;
+    if (isMay2026) {
+        mumbucaDate = `2026-05-10`; // Falls on the 10th as per user info
+    }
     
     // Check if it's the initial month (Jan 2026) for "Paid" logic
     const isJan2026 = (year === 2026 && month === 1);
     const isFeb2026 = (year === 2026 && month === 2);
     const isMar2026 = (year === 2026 && month === 3);
     const isApr2026 = (year === 2026 && month === 4);
-    const isMay2026 = (year === 2026 && month === 5);
     const isApr2026OrMay2026 = isApr2026 || isMay2026;
 
     // Base Incomes
@@ -107,7 +111,8 @@ export const generateMonthData = (year: number, month: number): MonthData => {
         { description: "SEGURO DO CARRO", amount: 143.00, category: "Moradia", day: 20, group: 'MORADIA' },
         { description: "CONTA DA VIVO MARCELLY", amount: 66.60, category: "Moradia", day: 23, group: 'MORADIA' },
         { description: "CONTA DA CLARO DA MARCELLY", amount: 34.90, category: "Moradia", day: 5, group: 'MORADIA' },
-        { description: "COMPRAS IAGO", amount: 83.00, category: "Alimentação", day: 25, group: 'IAGO' }
+        { description: "COMPRAS IAGO", amount: 83.00, category: "Alimentação", day: 25, group: 'IAGO' },
+        { description: "REMÉDIOS DO ANDRÉ", amount: 400.00, category: "Saúde", day: 10, group: 'MORADIA' }
     ];
 
     cyclicalConfig.forEach(c => {
@@ -223,7 +228,13 @@ export const generateMonthData = (year: number, month: number): MonthData => {
             // Moved from April as requested (uses May salary)
             { id: `avulso_combustivel_may`, description: "COMBUSTÍVEL (30/04)", amount: 50.00, category: "Transporte", paid: true, dueDate: "2026-04-30", date: "2026-04-30" },
             { id: `avulso_mercado_may`, description: "MERCADO (29/04)", amount: 187.28, category: "Alimentação", paid: true, dueDate: "2026-04-29", date: "2026-04-29" },
-            { id: `avulso_agua_may`, description: "COMPRA DA ÁGUA (29/04)", amount: 10.00, category: "Alimentação", paid: true, dueDate: "2026-04-29", date: "2026-04-29" }
+            { id: `avulso_agua_may`, description: "COMPRA DA ÁGUA (29/04)", amount: 10.00, category: "Alimentação", paid: true, dueDate: "2026-04-29", date: "2026-04-29" },
+            { id: `avulso_pedagio_may`, description: "PEDÁGIO (05/05)", amount: 6.60, category: "Transporte", paid: true, dueDate: "2026-05-05", date: "2026-05-05" },
+            { id: `avulso_mcd_may`, description: "MC DONALDS (04/05)", amount: 9.80, category: "Lazer", paid: true, dueDate: "2026-05-04", date: "2026-05-04" },
+            { id: `avulso_compra_4may_1`, description: "COMPRA AVULSA (04/05)", amount: 21.99, category: "Outros", paid: true, dueDate: "2026-05-04", date: "2026-05-04" },
+            { id: `avulso_compra_4may_2`, description: "COMPRA AVULSA (04/05)", amount: 21.00, category: "Outros", paid: true, dueDate: "2026-05-04", date: "2026-05-04" },
+            { id: `avulso_compra_30apr`, description: "COMPRA AVULSA (30/04)", amount: 20.00, category: "Outros", paid: true, dueDate: "2026-04-30", date: "2026-04-30" },
+            { id: `avulso_compra_29apr`, description: "COMPRA AVULSA (29/04)", amount: 10.00, category: "Outros", paid: true, dueDate: "2026-04-29", date: "2026-04-29" }
         );
     }
 
@@ -232,13 +243,20 @@ export const generateMonthData = (year: number, month: number): MonthData => {
         { id: 'set_itau_marcelly', description: 'Acordo Itaú Marcelly (À Vista)', amount: 400, priority: 2, isPaid: false, notes: 'Pagamento via PIX' }
     ];
 
+    const customAccounts = INITIAL_ACCOUNTS.map(acc => {
+        if (acc.id === 'acc_main') {
+            return { ...acc, name: 'Santander', balance: isMay2026 ? 22.28 : acc.balance };
+        }
+        return acc;
+    });
+
     return {
         incomes: newIncomes,
         expenses: newExpenses,
         shoppingItems: [],
         avulsosItems: newAvulsosItems,
         goals: [], // Goals removed as requested
-        bankAccounts: INITIAL_ACCOUNTS,
+        bankAccounts: customAccounts,
         debtSettlements: defaultSettlements,
         updatedAt: Date.now()
     };
